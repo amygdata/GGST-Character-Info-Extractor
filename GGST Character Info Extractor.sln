@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33209.295
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "GGST Character Info Extractor", "GGST Character Info Extractor\GGST Character Info Extractor.pyproj", "{5AAD6614-939B-4965-A38C-4504BCDBAE5F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5AAD6614-939B-4965-A38C-4504BCDBAE5F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5AAD6614-939B-4965-A38C-4504BCDBAE5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {39C381A5-7425-4CF2-99E8-35BF3EDC6932}
+	EndGlobalSection
+EndGlobal
