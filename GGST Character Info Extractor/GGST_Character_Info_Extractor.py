@@ -62,15 +62,78 @@ def get_move_data(character_data: str, move_name: str) -> str:
 
     return regex_match.group(0) if regex_match is not None else None
 
+def get_sprite_info(sprite_data: str):
+    regex_match = re.search(r"'(.+)', (\d+)", sprite_data)
+
+    return regex_match.group(1), int(regex_match.group(2)) if regex_match is not None else None
+
+
 def get_move_framedata(move_data: str) -> str:
     move_data_lines = move_data.splitlines()
 
-    LINE_PREFIXES = ("sprite:", "hit:", "recoveryState:", "attackEndDelay:", "attackOff:")
-    
+    RECOVERY_PREFIXES = (
+        "recoveryState:", 
+        "attackEndDelay:", 
+        "attackOff:",
+        "callSubroutine: s32'cmn_AttackEnd'",
+    )
+
+    EARLY_RECOVERY_CANCEL_PREFIXES = (
+        "callSubroutine: s32'cmnNandemoCancel'", #Cancel recovery early
+        "callSubroutine: s32'cmnNandemoCancelA'",
+        "callSubroutine: s32'cmnNandemoCancelC'",
+    )
+
+    LINE_PREFIXES = (
+        "sprite:", 
+        "hit:", 
+    ) + RECOVERY_PREFIXES + EARLY_RECOVERY_CANCEL_PREFIXES
+
+    startup_time = 0
+    active_time = 0
+    recovery_time = 0
+
+    current_stage = 0
+
     for line in move_data_lines:
         line = line.strip()
+
         if line.startswith(LINE_PREFIXES):
-            print(line)
+            #print(line)
+
+            if line.startswith("sprite:"):
+                sprite_name, sprite_time = get_sprite_info(line)
+
+            match current_stage:
+                case 0:
+                    if line.startswith("hit:"):
+                        startup_time -= sprite_time - 1
+                        active_time += sprite_time
+                        current_stage = 1
+                    else:
+                        startup_time += sprite_time
+                case 1:
+                    if line.startswith(RECOVERY_PREFIXES):
+                        active_time -= sprite_time
+                        recovery_time += sprite_time
+                        current_stage = 2
+                    else:
+                        if line.startswith("sprite:"):
+                            active_time += sprite_time
+                case 2:
+                    if line.startswith("hit:"):
+                        active_time += recovery_time
+                        recovery_time = 0
+                        current_stage = 1
+                    elif line.startswith(EARLY_RECOVERY_CANCEL_PREFIXES):
+                        recovery_time -= sprite_time
+                        break
+                    else:
+                        recovery_time += sprite_time
+
+    print(f'Total Startup: {startup_time}')
+    print(f'Total Active Time: {active_time}')
+    print(f'Total Recovery Time: {recovery_time}')
 
     return None
 
