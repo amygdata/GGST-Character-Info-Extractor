@@ -38,7 +38,7 @@ class Move:
 
         self.startup_frames = 0
         self.active_frames = 0
-        self.recovery_flames = 0
+        self.recovery_frames = 0
 
         self.set_move_name()
 
@@ -61,6 +61,75 @@ class Move:
 
                 if args.verbose:
                     print(f'Mapped name {self.move_name} to alias {self.move_alias}')
+
+    def _get_sprite_info(self, sprite_data: str):
+        regex_match = re.search(r"'(.+)', (\d+)", sprite_data)
+
+        return regex_match.group(1), int(regex_match.group(2)) if regex_match is not None else None
+
+
+    def get_move_framedata(self):
+        move_data_lines = self.data.splitlines()
+
+        RECOVERY_PREFIXES = (
+            "recoveryState:", 
+            "attackEndDelay:", 
+            "attackOff:",
+            "callSubroutine: s32'cmn_AttackEnd'",
+        )
+
+        EARLY_RECOVERY_CANCEL_PREFIXES = (
+            "callSubroutine: s32'cmnNandemoCancel'", #Cancel recovery early
+            "callSubroutine: s32'cmnNandemoCancelA'",
+            "callSubroutine: s32'cmnNandemoCancelC'",
+        )
+
+        LINE_PREFIXES = (
+            "sprite:", 
+            "hit:", 
+        ) + RECOVERY_PREFIXES + EARLY_RECOVERY_CANCEL_PREFIXES
+
+        current_stage = 0
+
+        for line in move_data_lines:
+            line = line.strip()
+
+            if line.startswith(LINE_PREFIXES):
+                #print(line)
+
+                if line.startswith("sprite:"):
+                    sprite_name, sprite_time = self._get_sprite_info(line)
+
+                match current_stage:
+                    case 0:
+                        if line.startswith("hit:"):
+                            self.startup_frames -= sprite_time - 1
+                            self.active_frames += sprite_time
+                            current_stage = 1
+                        else:
+                            self.startup_frames += sprite_time
+                    case 1:
+                        if line.startswith(RECOVERY_PREFIXES):
+                            self.active_frames -= sprite_time
+                            self.recovery_frames += sprite_time
+                            current_stage = 2
+                        else:
+                            if line.startswith("sprite:"):
+                                self.active_frames += sprite_time
+                    case 2:
+                        if line.startswith("hit:"):
+                            self.active_frames += self.recovery_frames 
+                            self.recovery_frames = 0
+                            current_stage = 1
+                        elif line.startswith(EARLY_RECOVERY_CANCEL_PREFIXES):
+                            self.recovery_frames -= sprite_time
+                            break
+                        else:
+                            self.recovery_frames += sprite_time
+
+        print(f'Total Startup: {self.startup_frames}')
+        print(f'Total Active Time: {self.active_frames}')
+        print(f'Total Recovery Time: {self.recovery_frames}')
 
     @staticmethod
     def map_move_alias(move_alias: str) -> str:
@@ -95,80 +164,6 @@ def get_move_data(character_data: str, move_name: str) -> str:
 
     return regex_match.group(0) if regex_match is not None else None
 
-def get_sprite_info(sprite_data: str):
-    regex_match = re.search(r"'(.+)', (\d+)", sprite_data)
-
-    return regex_match.group(1), int(regex_match.group(2)) if regex_match is not None else None
-
-
-def get_move_framedata(move_data: str) -> str:
-    move_data_lines = move_data.splitlines()
-
-    RECOVERY_PREFIXES = (
-        "recoveryState:", 
-        "attackEndDelay:", 
-        "attackOff:",
-        "callSubroutine: s32'cmn_AttackEnd'",
-    )
-
-    EARLY_RECOVERY_CANCEL_PREFIXES = (
-        "callSubroutine: s32'cmnNandemoCancel'", #Cancel recovery early
-        "callSubroutine: s32'cmnNandemoCancelA'",
-        "callSubroutine: s32'cmnNandemoCancelC'",
-    )
-
-    LINE_PREFIXES = (
-        "sprite:", 
-        "hit:", 
-    ) + RECOVERY_PREFIXES + EARLY_RECOVERY_CANCEL_PREFIXES
-
-    startup_time = 0
-    active_time = 0
-    recovery_time = 0
-
-    current_stage = 0
-
-    for line in move_data_lines:
-        line = line.strip()
-
-        if line.startswith(LINE_PREFIXES):
-            #print(line)
-
-            if line.startswith("sprite:"):
-                sprite_name, sprite_time = get_sprite_info(line)
-
-            match current_stage:
-                case 0:
-                    if line.startswith("hit:"):
-                        startup_time -= sprite_time - 1
-                        active_time += sprite_time
-                        current_stage = 1
-                    else:
-                        startup_time += sprite_time
-                case 1:
-                    if line.startswith(RECOVERY_PREFIXES):
-                        active_time -= sprite_time
-                        recovery_time += sprite_time
-                        current_stage = 2
-                    else:
-                        if line.startswith("sprite:"):
-                            active_time += sprite_time
-                case 2:
-                    if line.startswith("hit:"):
-                        active_time += recovery_time
-                        recovery_time = 0
-                        current_stage = 1
-                    elif line.startswith(EARLY_RECOVERY_CANCEL_PREFIXES):
-                        recovery_time -= sprite_time
-                        break
-                    else:
-                        recovery_time += sprite_time
-
-    print(f'Total Startup: {startup_time}')
-    print(f'Total Active Time: {active_time}')
-    print(f'Total Recovery Time: {recovery_time}')
-
-    return None
 
 def main():
     input_file_name = vars(args)['<INPUT FILE>']
@@ -181,11 +176,16 @@ def main():
 
     if(args.move):
         move_name = Move.map_move_alias(args.move)
-        move_data = get_move_data(input_file_data, move_name)
+
+        move_data = None
+        if move_name is not None:
+            move_data = get_move_data(input_file_data, move_name)
+        else:
+            move_data = get_move_data(input_file_data, args.move)
 
         if move_data is not None:
             move = Move(move_data)
-            get_move_framedata(move_data)
+            move.get_move_framedata()
         else:
             print(f'Move {move_name} not found')
     else:
