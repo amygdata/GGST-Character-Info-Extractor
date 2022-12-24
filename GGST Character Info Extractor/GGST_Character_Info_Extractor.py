@@ -8,39 +8,72 @@ parser.add_argument("-m", "--move", help="target move to extract")
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
 args = parser.parse_args()
 
-MOVE_NAME_MAP = {
-    '5P'  : 'NmlAtk5A',
-    '6P'  : 'NmlAtk6A',
-    '2P'  : 'NmlAtk2A',
-    '5K'  : 'NmlAtk5B',
-    '2K'  : 'NmlAtk2B',
-    '6K'  : 'NmlAtk6B',
-    'c.S' : 'NmlAtk5CNear',
-    'f.S' : 'NmlAtk5CFar',
-    '2S'  : 'NmlAtk2C',
-    '5H'  : 'NmlAtk5D',
-    '6H'  : 'NmlAtk6D',
-    '2H'  : 'NmlAtk2D',
-    '5D'  : 'NmlAtk5E',
-    '2D'  : 'NmlAtk2E',
-    'j.P' : 'NmlAtkAir5A',
-    'j.K' : 'NmlAtkAir5B',
-    'j.S' : 'NmlAtkAir5C',
-    'j.H' : 'NmlAtkAir5D',
-    'j.D' : 'NmlAtkAir5E'
-}
+class Move:
+    MOVE_NAME_MAP = {
+        '5P'  : 'NmlAtk5A',
+        '6P'  : 'NmlAtk6A',
+        '2P'  : 'NmlAtk2A',
+        '5K'  : 'NmlAtk5B',
+        '2K'  : 'NmlAtk2B',
+        '6K'  : 'NmlAtk6B',
+        'c.S' : 'NmlAtk5CNear',
+        'f.S' : 'NmlAtk5CFar',
+        '2S'  : 'NmlAtk2C',
+        '5H'  : 'NmlAtk5D',
+        '6H'  : 'NmlAtk6D',
+        '2H'  : 'NmlAtk2D',
+        '5D'  : 'NmlAtk5E',
+        '2D'  : 'NmlAtk2E',
+        'j.P' : 'NmlAtkAir5A',
+        'j.K' : 'NmlAtkAir5B',
+        'j.S' : 'NmlAtkAir5C',
+        'j.H' : 'NmlAtkAir5D',
+        'j.D' : 'NmlAtkAir5E'
+    }
 
-def map_move_name(move_name: str) -> str:
-    if move_name in MOVE_NAME_MAP:
+    def __init__(self, move_data: str, move_alias = None):
+        self.data = move_data
+        self.move_name = None
+        self.move_alias = move_alias
 
-        mapped_name = MOVE_NAME_MAP[move_name]
+        self.startup_frames = 0
+        self.active_frames = 0
+        self.recovery_flames = 0
 
-        if args.verbose:
-            print(f'Mapped {move_name} to {mapped_name}')
+        self.set_move_name()
 
-        return mapped_name
+        if self.move_alias is None:
+            self.set_move_alias()
 
-    return move_name
+    def set_move_name(self):
+        regex_match = re.search(r"beginState: s32'(.+)'", self.data)
+
+        if regex_match is not None:
+            self.move_name = regex_match.group(1)
+
+            if args.verbose:
+                print(f'Found move name {self.move_name}')
+
+    def set_move_alias(self):
+        for alias, name in self.MOVE_NAME_MAP.items():
+            if name == self.move_name:
+                self.move_alias = alias
+
+                if args.verbose:
+                    print(f'Mapped name {self.move_name} to alias {self.move_alias}')
+
+    @staticmethod
+    def map_move_alias(move_alias: str) -> str:
+        if move_alias in Move.MOVE_NAME_MAP:
+
+            mapped_name = Move.MOVE_NAME_MAP[move_alias]
+
+            if args.verbose:
+                print(f'Mapped alias {move_alias} to name {mapped_name}')
+
+            return mapped_name
+
+        return None
 
 def open_file(input_file_name: str):
     try:
@@ -147,10 +180,11 @@ def main():
     input_file.close()
 
     if(args.move):
-        move_name = map_move_name(args.move)
+        move_name = Move.map_move_alias(args.move)
         move_data = get_move_data(input_file_data, move_name)
 
         if move_data is not None:
+            move = Move(move_data)
             get_move_framedata(move_data)
         else:
             print(f'Move {move_name} not found')
