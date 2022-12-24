@@ -40,10 +40,19 @@ class Move:
         self.active_frames = 0
         self.recovery_frames = 0
 
+        self.damage = []
+        self.attack_level = []
+        self.counter_type = 0
+
         self.set_move_name()
 
         if self.move_alias is None:
             self.set_move_alias()
+
+        self.get_move_damage()
+        self.get_move_attack_level()
+        self.get_move_counter_type()
+        self.get_move_framedata()
 
     def set_move_name(self):
         regex_match = re.search(r"beginState: s32'(.+)'", self.data)
@@ -62,11 +71,41 @@ class Move:
                 if args.verbose:
                     print(f'Mapped name {self.move_name} to alias {self.move_alias}')
 
-    def _get_sprite_info(self, sprite_data: str):
-        regex_match = re.search(r"'(.+)', (\d+)", sprite_data)
+    def get_move_damage(self):
+        regex = re.compile(r"damage: \d+, (\d+)")
 
-        return regex_match.group(1), int(regex_match.group(2)) if regex_match is not None else None
+        for line in self.data.splitlines():
+            match = regex.search(line.strip())
 
+            if match is not None:
+                self.damage.append(int(match.group(1)))
+        
+        print(f'Damage {self.damage}')
+
+    def get_move_attack_level(self):
+        match = re.search(r"_AtkLv(\d)", self.data)
+
+        if match is not None:
+            self.attack_level.append(int(match.group(1)))
+            print(f'Attack Level {self.attack_level}')
+
+    def get_move_counter_type(self):
+        match = re.search(r"_countertype'", self.data)
+
+        if match is not None:
+            self.counter_type = "Small"
+
+        match = re.search(r"_countertype_m", self.data)
+
+        if match is not None:
+            self.counter_type = "Mid"
+
+        match = re.search(r"_countertype_h", self.data)
+
+        if match is not None:
+            self.counter_type = "Large"
+
+        print(f'Counter Type {self.counter_type}')
 
     def get_move_framedata(self):
         move_data_lines = self.data.splitlines()
@@ -132,6 +171,12 @@ class Move:
         print(f'Total Recovery Time: {self.recovery_frames}')
 
     @staticmethod
+    def _get_sprite_info(sprite_data: str) -> tuple[str, int]:
+        regex_match = re.search(r"'(.+)', (\d+)", sprite_data)
+
+        return regex_match.group(1), int(regex_match.group(2)) if regex_match is not None else None
+
+    @staticmethod
     def map_move_alias(move_alias: str) -> str:
         if move_alias in Move.MOVE_NAME_MAP:
 
@@ -185,9 +230,11 @@ def main():
 
         if move_data is not None:
             move = Move(move_data)
-            move.get_move_framedata()
         else:
-            print(f'Move {move_name} not found')
+            if move_name is not None:
+                print(f'Move {move_name} not found')
+            else:
+                print(f'Move {args.move} not found')
     else:
         print(input_file_data)
 
